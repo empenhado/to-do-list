@@ -4,7 +4,7 @@ export const taskSchema = z.object({
   title: z
     .string()
     .min(1, "O título é obrigatório")
-    .max(100, "O título não pode ter mais de 100 caracteres"),
+    .max(100),
   description: z.string().optional(),
 });
 
