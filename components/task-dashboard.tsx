@@ -5,64 +5,43 @@ import type { Task } from "@prisma/client";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Container } from "@/components/ui/container";
+import { TaskForm } from "@/components/task-form";
 import { createTask, updateTask, toggleTask, deleteTask } from "@/app/actions/task-actions";
 
 export function TaskDashboard({ tasks }: { tasks: Task[] }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      const res = await createTask({ title, description });
-      if (res.success) {
-        toast.success("Tarefa criada!");
-        setTitle("");
-        setDescription("");
-      } else {
-        setError(res.error);
-        toast.error(res.error);
-      }
-    });
-  }
-
   return (
     <Container>
-      <h1 className="text-3xl font-bold text-center">Minhas tarefas</h1>
+      <h1 className="text-center text-3xl font-bold">Minhas tarefas</h1>
 
-      <form onSubmit={handleCreate} className="space-y-3 rounded-lg border p-4">
-        <Input
-          placeholder="Título da tarefa"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          maxLength={100}
-        />
-        <Textarea
-          placeholder="Descrição (opcional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          maxLength={500}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-          {isPending ? "Salvando..." : "Adicionar tarefa"}
-        </Button>
-      </form>
+      <Card>
+        <CardHeader>
+          <CardTitle>Nova tarefa</CardTitle>
+          <CardDescription>Adicione uma tarefa à sua lista.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TaskForm
+            submitLabel="Adicionar tarefa"
+            successMessage="Tarefa criada!"
+            onSubmit={createTask}
+            resetOnSuccess
+          />
+        </CardContent>
+      </Card>
 
       {tasks.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
@@ -82,9 +61,6 @@ export function TaskDashboard({ tasks }: { tasks: Task[] }) {
 function TaskItem({ task }: { task: Task }) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
-  const [editTitle, setEditTitle] = useState(task.title);
-  const [editDescription, setEditDescription] = useState(task.description ?? "");
-  const [editError, setEditError] = useState<string | null>(null);
 
   function handleToggle(checked: boolean) {
     startTransition(async () => {
@@ -100,22 +76,6 @@ function TaskItem({ task }: { task: Task }) {
       const res = await deleteTask(task.id);
       if (res.success) toast.success("Tarefa excluída!");
       else toast.error(res.error);
-    });
-  }
-
-  function handleSave() {
-    setEditError(null);
-    startTransition(async () => {
-      const res = await updateTask(task.id, {
-        title: editTitle,
-        description: editDescription,
-      });
-      if (res.success) {
-        toast.success("Tarefa atualizada!");
-        setEditOpen(false);
-      } else {
-        setEditError(res.error);
-      }
     });
   }
 
@@ -175,27 +135,14 @@ function TaskItem({ task }: { task: Task }) {
           <DialogHeader>
             <DialogTitle>Editar tarefa</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              maxLength={100}
-            />
-            <Textarea
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              maxLength={500}
-            />
-            {editError && <p className="text-sm text-red-600">{editError}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={isPending}>
-              Salvar
-            </Button>
-          </DialogFooter>
+          <TaskForm
+            defaultValues={{ title: task.title, description: task.description ?? "" }}
+            submitLabel="Salvar"
+            successMessage="Tarefa atualizada!"
+            onSubmit={(data) => updateTask(task.id, data)}
+            onSuccess={() => setEditOpen(false)}
+            onCancel={() => setEditOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </li>
