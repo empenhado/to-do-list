@@ -1,26 +1,33 @@
-import type { Metadata } from 'next'
-import { ClerkProvider, Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
-import { ptBR } from '@clerk/localizations'
-import { Inter } from 'next/font/google'
-import { Suspense } from 'react'
-import { ThemeProvider } from '@/components/theme-provider'
-import { Toaster } from '@/components/ui/sonner'
-import './globals.css'
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { ptBR } from "@clerk/localizations";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import { Suspense } from "react";
+import "./globals.css";
 
 const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-})
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'Minhas Tarefas',
-  description: 'Gerenciador de tarefas com Next.js, Clerk e Prisma',
-}
+  title: "Minhas Tarefas",
+  description: "Gerenciador de tarefas com Next.js, Clerk e Prisma",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html
@@ -33,7 +40,7 @@ export default function RootLayout({
           <ClerkProvider localization={ptBR}>
             <header className="flex justify-end items-center p-4 gap-4 h-16">
               <Suspense>
-                <Show when="signed-out">
+                <SignedOut>
                   <SignInButton>
                     <button className="font-medium text-sm sm:text-base cursor-pointer">
                       Entrar
@@ -44,10 +51,10 @@ export default function RootLayout({
                       Criar conta
                     </button>
                   </SignUpButton>
-                </Show>
-                <Show when="signed-in">
+                </SignedOut>
+                <SignedIn>
                   <UserButton showName />
-                </Show>
+                </SignedIn>
               </Suspense>
             </header>
             {children}
@@ -56,5 +63,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

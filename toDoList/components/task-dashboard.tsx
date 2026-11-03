@@ -1,29 +1,22 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import type { Task } from "@prisma/client";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "sonner";
+import type { Task } from "@prisma/client";
 import { Pencil, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
-import { taskSchema, type TaskFormData } from "@/lib/validations";
-import { createTask, updateTask, toggleTask, deleteTask } from "@/app/actions/task-actions";
-
+import {
+  createTask,
+  deleteTask,
+  toggleTask,
+  updateTask,
+} from "@/app/actions/task-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Container } from "@/components/ui/container";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-  FormLabel,
-} from "@/components/ui/form";
 import {
   Dialog,
   DialogContent,
@@ -31,11 +24,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { taskSchema, type TaskFormData } from "@/lib/validations";
 
 export function TaskDashboard({ tasks }: { tasks: Task[] }) {
   const [isPending, startTransition] = useTransition();
 
-  // 1. Formulário de Criação com React Hook Form + Zod
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
@@ -47,13 +50,15 @@ export function TaskDashboard({ tasks }: { tasks: Task[] }) {
   function handleCreate(data: TaskFormData) {
     startTransition(async () => {
       const res = await createTask(data);
+
       if (res.success) {
         toast.success("Tarefa criada!");
         form.reset();
-      } else {
-        form.setError("root", { message: res.error });
-        toast.error(res.error);
+        return;
       }
+
+      form.setError("root", { message: res.error });
+      toast.error(res.error);
     });
   }
 
@@ -61,7 +66,6 @@ export function TaskDashboard({ tasks }: { tasks: Task[] }) {
     <Container className="space-y-6">
       <h1 className="text-3xl font-bold text-center">Minhas tarefas</h1>
 
-      {/* Formulário Principal de Criação */}
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(handleCreate)}
@@ -78,6 +82,7 @@ export function TaskDashboard({ tasks }: { tasks: Task[] }) {
             name="title"
             render={({ field }) => (
               <FormItem>
+                <FormLabel>Título</FormLabel>
                 <FormControl>
                   <Input placeholder="Título da tarefa" {...field} />
                 </FormControl>
@@ -91,21 +96,29 @@ export function TaskDashboard({ tasks }: { tasks: Task[] }) {
             name="description"
             render={({ field }) => (
               <FormItem>
+                <FormLabel>Descrição</FormLabel>
                 <FormControl>
-                  <Textarea placeholder="Descrição (opcional)" {...field} />
+                  <Textarea
+                    placeholder="Descrição (opcional)"
+                    {...field}
+                    value={field.value ?? ""}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+          <Button
+            type="submit"
+            disabled={isPending}
+            className="w-full sm:w-auto"
+          >
             {isPending ? "Salvando..." : "Adicionar tarefa"}
           </Button>
         </form>
       </Form>
 
-      {/* Listagem de Tarefas */}
       {tasks.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           Você ainda não tem tarefas. Crie a primeira acima.
@@ -128,17 +141,28 @@ function TaskItem({ task }: { task: Task }) {
   function handleToggle(checked: boolean) {
     startTransition(async () => {
       const res = await toggleTask(task.id, checked);
-      if (res.success) toast.success(checked ? "Tarefa concluída!" : "Tarefa reaberta!");
-      else toast.error(res.error);
+
+      if (res.success) {
+        toast.success(checked ? "Tarefa concluída!" : "Tarefa reaberta!");
+        return;
+      }
+
+      toast.error(res.error);
     });
   }
 
   function handleDelete() {
     if (!confirm("Excluir esta tarefa?")) return;
+
     startTransition(async () => {
       const res = await deleteTask(task.id);
-      if (res.success) toast.success("Tarefa excluída!");
-      else toast.error(res.error);
+
+      if (res.success) {
+        toast.success("Tarefa excluída!");
+        return;
+      }
+
+      toast.error(res.error);
     });
   }
 
@@ -150,8 +174,9 @@ function TaskItem({ task }: { task: Task }) {
             className="mt-1 border-primary"
             checked={task.completed}
             disabled={isPending}
-            onCheckedChange={(v) => handleToggle(v === true)}
+            onCheckedChange={(value) => handleToggle(value === true)}
           />
+
           <div className="min-w-0 flex-1">
             <p
               className={
@@ -162,15 +187,18 @@ function TaskItem({ task }: { task: Task }) {
             >
               {task.title}
             </p>
+
             {task.description && (
               <p className="mt-1 break-words text-sm text-muted-foreground">
                 {task.description}
               </p>
             )}
+
             <p className="mt-2 text-xs text-muted-foreground">
               Criada em {new Date(task.createdAt).toLocaleDateString("pt-BR")}
             </p>
           </div>
+
           <div className="flex gap-1">
             <Button
               variant="outline"
@@ -193,17 +221,11 @@ function TaskItem({ task }: { task: Task }) {
         </CardContent>
       </Card>
 
-      {/* Modal de Edição isolado com Zod + Form */}
-      <EditTaskDialog
-        task={task}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      <EditTaskDialog task={task} open={editOpen} onOpenChange={setEditOpen} />
     </li>
   );
 }
 
-// Subcomponente isolado para garantir que o formulário de edição reinicie os estados corretamente
 function EditTaskDialog({
   task,
   open,
@@ -215,7 +237,6 @@ function EditTaskDialog({
 }) {
   const [isPending, startTransition] = useTransition();
 
-  // 2. Formulário de Edição sincronizado com os dados da tarefa
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
     values: {
@@ -227,13 +248,15 @@ function EditTaskDialog({
   function handleSave(data: TaskFormData) {
     startTransition(async () => {
       const res = await updateTask(task.id, data);
+
       if (res.success) {
         toast.success("Tarefa atualizada!");
         onOpenChange(false);
-      } else {
-        form.setError("root", { message: res.error });
-        toast.error(res.error);
+        return;
       }
+
+      form.setError("root", { message: res.error });
+      toast.error(res.error);
     });
   }
 
@@ -271,3 +294,30 @@ function EditTaskDialog({
               name="description"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>Descrição</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { taskSchema, TaskFormData } from "@/lib/validations";
 import { createTask } from "@/app/actions/task-actions";
+import { TaskFormData, taskSchema } from "@/lib/validations";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +53,11 @@ export function TaskForm() {
             <FormItem>
               <FormLabel>Título</FormLabel>
               <FormControl>
-                <Input placeholder="Digite o título da tarefa..." {...field} />
+                <Input
+                  placeholder="Digite o título da tarefa..."
+                  {...field}
+                  value={field.value ?? ""}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -70,6 +74,7 @@ export function TaskForm() {
                 <Textarea
                   placeholder="Digite os detalhes da tarefa..."
                   {...field}
+                  value={field.value ?? ""}
                 />
               </FormControl>
               <FormMessage />
