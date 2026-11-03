@@ -2,13 +2,28 @@
 
 import { useState, useTransition } from "react";
 import type { Task } from "@prisma/client";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
+
+import { taskSchema, type TaskFormData } from "@/lib/validations";
+import { createTask, updateTask, toggleTask, deleteTask } from "@/app/actions/task-actions";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Container } from "@/components/ui/container";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormLabel,
+} from "@/components/ui/form";
 import {
   Dialog,
   DialogContent,
@@ -16,54 +31,81 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Container } from "@/components/ui/container";
-import { createTask, updateTask, toggleTask, deleteTask } from "@/app/actions/task-actions";
 
 export function TaskDashboard({ tasks }: { tasks: Task[] }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
+  // 1. Formulário de Criação com React Hook Form + Zod
+  const form = useForm<TaskFormData>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+    },
+  });
+
+  function handleCreate(data: TaskFormData) {
     startTransition(async () => {
-      const res = await createTask({ title, description });
+      const res = await createTask(data);
       if (res.success) {
         toast.success("Tarefa criada!");
-        setTitle("");
-        setDescription("");
+        form.reset();
       } else {
-        setError(res.error);
+        form.setError("root", { message: res.error });
         toast.error(res.error);
       }
     });
   }
 
   return (
-    <Container>
+    <Container className="space-y-6">
       <h1 className="text-3xl font-bold text-center">Minhas tarefas</h1>
 
-      <form onSubmit={handleCreate} className="space-y-3 rounded-lg border p-4">
-        <Input
-          placeholder="Título da tarefa"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          maxLength={100}
-        />
-        <Textarea
-          placeholder="Descrição (opcional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          maxLength={500}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-          {isPending ? "Salvando..." : "Adicionar tarefa"}
-        </Button>
-      </form>
+      {/* Formulário Principal de Criação */}
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(handleCreate)}
+          className="space-y-4 rounded-lg border p-4 shadow-sm"
+        >
+          {form.formState.errors.root && (
+            <p className="text-sm font-medium text-destructive">
+              {form.formState.errors.root.message}
+            </p>
+          )}
 
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input placeholder="Título da tarefa" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Textarea placeholder="Descrição (opcional)" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+            {isPending ? "Salvando..." : "Adicionar tarefa"}
+          </Button>
+        </form>
+      </Form>
+
+      {/* Listagem de Tarefas */}
       {tasks.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           Você ainda não tem tarefas. Crie a primeira acima.
@@ -82,9 +124,6 @@ export function TaskDashboard({ tasks }: { tasks: Task[] }) {
 function TaskItem({ task }: { task: Task }) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
-  const [editTitle, setEditTitle] = useState(task.title);
-  const [editDescription, setEditDescription] = useState(task.description ?? "");
-  const [editError, setEditError] = useState<string | null>(null);
 
   function handleToggle(checked: boolean) {
     startTransition(async () => {
@@ -100,22 +139,6 @@ function TaskItem({ task }: { task: Task }) {
       const res = await deleteTask(task.id);
       if (res.success) toast.success("Tarefa excluída!");
       else toast.error(res.error);
-    });
-  }
-
-  function handleSave() {
-    setEditError(null);
-    startTransition(async () => {
-      const res = await updateTask(task.id, {
-        title: editTitle,
-        description: editDescription,
-      });
-      if (res.success) {
-        toast.success("Tarefa atualizada!");
-        setEditOpen(false);
-      } else {
-        setEditError(res.error);
-      }
     });
   }
 
@@ -170,34 +193,81 @@ function TaskItem({ task }: { task: Task }) {
         </CardContent>
       </Card>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar tarefa</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              maxLength={100}
-            />
-            <Textarea
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              maxLength={500}
-            />
-            {editError && <p className="text-sm text-red-600">{editError}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={isPending}>
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Modal de Edição isolado com Zod + Form */}
+      <EditTaskDialog
+        task={task}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
     </li>
   );
 }
+
+// Subcomponente isolado para garantir que o formulário de edição reinicie os estados corretamente
+function EditTaskDialog({
+  task,
+  open,
+  onOpenChange,
+}: {
+  task: Task;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  // 2. Formulário de Edição sincronizado com os dados da tarefa
+  const form = useForm<TaskFormData>({
+    resolver: zodResolver(taskSchema),
+    values: {
+      title: task.title,
+      description: task.description ?? "",
+    },
+  });
+
+  function handleSave(data: TaskFormData) {
+    startTransition(async () => {
+      const res = await updateTask(task.id, data);
+      if (res.success) {
+        toast.success("Tarefa atualizada!");
+        onOpenChange(false);
+      } else {
+        form.setError("root", { message: res.error });
+        toast.error(res.error);
+      }
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar tarefa</DialogTitle>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
+            {form.formState.errors.root && (
+              <p className="text-sm font-medium text-destructive">
+                {form.formState.errors.root.message}
+              </p>
+            )}
+
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Título</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>

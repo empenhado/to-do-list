@@ -3,6 +3,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import {
+  taskSchema,
+  taskIdSchema,
+  toggleTaskSchema,
+  TaskFormData,
+} from "@/lib/validations";
 
 type Result = { success: true } | { success: false; error: string };
 
@@ -12,68 +18,140 @@ async function requireUserId() {
   return userId;
 }
 
-function validate(title: string, description?: string): string | null {
-  if (!title.trim()) return "O título é obrigatório.";
-  if (title.trim().length > 100) return "O título deve ter no máximo 100 caracteres.";
-  if (description && description.length > 500)
-    return "A descrição deve ter no máximo 500 caracteres.";
-  return null;
+// 1. CREATE
+export async function createTask(data: TaskFormData): Promise<Result> {
+  try {
+    const userId = await requireUserId();
+
+    const parsed = taskSchema.safeParse(data);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    await prisma.task.create({
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description,
+        userId,
+      },
+    });
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao criar tarefa.",
+    };
+  }
 }
 
-export async function createTask(data: {
-  title: string;
-  description?: string;
-}): Promise<Result> {
-  const userId = await requireUserId();
-  const error = validate(data.title, data.description);
-  if (error) return { success: false, error };
-
-  await prisma.task.create({
-    data: {
-      title: data.title.trim(),
-      description: data.description?.trim() || null,
-      userId, 
-    },
-  });
-  revalidatePath("/");
-  return { success: true };
-}
-
+// 2. UPDATE
 export async function updateTask(
   id: string,
-  data: { title: string; description?: string }
+  data: TaskFormData,
 ): Promise<Result> {
-  const userId = await requireUserId();
-  const error = validate(data.title, data.description);
-  if (error) return { success: false, error };
+  try {
+    const userId = await requireUserId();
 
-  const result = await prisma.task.updateMany({
-    where: { id, userId }, 
-    data: {
-      title: data.title.trim(),
-      description: data.description?.trim() || null,
-    },
-  });
-  if (result.count === 0) return { success: false, error: "Tarefa não encontrada." };
-  revalidatePath("/");
-  return { success: true };
+    const idParsed = taskIdSchema.safeParse(id);
+    const dataParsed = taskSchema.safeParse(data);
+
+    if (!idParsed.success) {
+      return { success: false, error: idParsed.error.issues[0].message };
+    }
+    if (!dataParsed.success) {
+      return { success: false, error: dataParsed.error.issues[0].message };
+    }
+
+    const result = await prisma.task.updateMany({
+      where: { id: idParsed.data, userId },
+      data: {
+        title: dataParsed.data.title,
+        description: dataParsed.data.description,
+      },
+    });
+
+    if (result.count === 0) {
+      return {
+        success: false,
+        error: "Tarefa não encontrada ou sem permissão.",
+      };
+    }
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Erro ao atualizar tarefa.",
+    };
+  }
 }
 
-export async function toggleTask(id: string, completed: boolean): Promise<Result> {
-  const userId = await requireUserId();
-  const result = await prisma.task.updateMany({
-    where: { id, userId },
-    data: { completed },
-  });
-  if (result.count === 0) return { success: false, error: "Tarefa não encontrada." };
-  revalidatePath("/");
-  return { success: true };
+// 3. TOGGLE
+export async function toggleTask(
+  id: string,
+  completed: boolean,
+): Promise<Result> {
+  try {
+    const userId = await requireUserId();
+
+    const parsed = toggleTaskSchema.safeParse({ id, completed });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const result = await prisma.task.updateMany({
+      where: { id: parsed.data.id, userId },
+      data: { completed: parsed.data.completed },
+    });
+
+    if (result.count === 0) {
+      return {
+        success: false,
+        error: "Tarefa não encontrada ou sem permissão.",
+      };
+    }
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao alterar status.",
+    };
+  }
 }
 
+// 4. DELETE
 export async function deleteTask(id: string): Promise<Result> {
-  const userId = await requireUserId();
-  const result = await prisma.task.deleteMany({ where: { id, userId } });
-  if (result.count === 0) return { success: false, error: "Tarefa não encontrada." };
-  revalidatePath("/");
-  return { success: true };
+  try {
+    const userId = await requireUserId();
+
+    const parsed = taskIdSchema.safeParse(id);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const result = await prisma.task.deleteMany({
+      where: { id: parsed.data, userId },
+    });
+
+    if (result.count === 0) {
+      return {
+        success: false,
+        error: "Tarefa não encontrada ou sem permissão.",
+      };
+    }
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao excluir tarefa.",
+    };
+  }
 }

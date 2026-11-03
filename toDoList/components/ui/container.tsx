@@ -1,7 +1,13 @@
-export function Container({ children }: { children: React.ReactNode }) {
+import { cn } from "@/lib/utils";
+
+export function Container({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 sm:px-8 lg:px-12">
-      {children}
-    </main>
+    <div
+      className={cn("container mx-auto px-4 max-w-3xl space-y-6", className)}
+      {...props}
+    />
   );
 }
