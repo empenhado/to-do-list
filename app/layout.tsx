@@ -5,6 +5,7 @@ import { ptBR } from '@clerk/localizations'
 import { Inter } from 'next/font/google'
 import { Suspense } from 'react'
 import { Toaster } from '@/components/ui/sonner'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const inter = Inter({
@@ -25,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
+        <ThemeProvider>
         <ClerkProvider localization={ptBR}>
           <header className="flex justify-end items-center p-4 gap-4 h-16">
             <Suspense>
@@ -48,6 +50,7 @@ export default function RootLayout({
           {children}
           <Toaster richColors />
         </ClerkProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
